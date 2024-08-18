@@ -1,8 +1,11 @@
-﻿
-using System.Web.Mvc;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Bookstore.Web.Areas.Admin.Controllers
 {
+    using Microsoft.AspNetCore.Mvc;
+    using Microsoft.AspNetCore.Authorization;
+
     [AllowAnonymous]
     public class ErrorController : AdminAreaControllerBase
     {
@@ -21,7 +24,6 @@ namespace Bookstore.Web.Areas.Admin.Controllers
             //var exception = HttpContext.Features.Get<IExceptionHandlerPathFeature>();
             //ViewData["Path"] = exception?.Path;
             //var error = Problem();
-
             //ViewData["StatusCode"] = error.StatusCode;
             return View("~/Views/Error/Index.cshtml");
         }
