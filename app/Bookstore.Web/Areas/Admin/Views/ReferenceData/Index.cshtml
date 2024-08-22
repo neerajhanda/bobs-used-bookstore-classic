@@ -19,14 +19,7 @@
         <form class="row row-cols-lg-auto g-3 align-items-center" method="get">
             <div class="col-12">
                 <label class="visually-hidden" for="referenceDataTypeSelect">Reference data type</label>
-
-
-                @Html.EnumDropDownListFor(a => a.Filters.ReferenceDataType, "All Reference Data Types", new { @class = "form-select" })
-
-
-
-
-
+                @Html.DropDownListFor(a => a.Filters.ReferenceDataType, Html.GetEnumSelectList<ReferenceDataType>(), "All Reference Data Types", new { @class = "form-select" })
             </div>
 
             <div class="col-12">

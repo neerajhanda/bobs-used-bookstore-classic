@@ -43,8 +43,7 @@
   <ItemGroup>
     <Compile Remove="Properties/AssemblyInfo.cs"></Compile>
   </ItemGroup>
-  <Import Project="..\packages\EntityFramework.6.4.4\build\EntityFramework.props" />
-  <ItemGroup>
+    <ItemGroup>
     <None Include="App.config" />
     <None Include="packages.config" />
   </ItemGroup>
