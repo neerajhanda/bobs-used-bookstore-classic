@@ -1,15 +1,75 @@
-﻿using Bookstore.Domain;
-using Bookstore.Domain.Books;
-using Bookstore.Domain.Orders;
+using Bookstore.Domain;
+using Bookstore.Domain.Repositories;
+using System.Data.Entity;
 using System;
 using System.Collections.Generic;
 using System.Data.Entity;
 using System.Linq;
 using System.Threading.Tasks;
+using Bookstore.Data;
+using Bookstore.Data.Extensions;
+using System.Data.Entity.Infrastructure;
+using Bookstore.Domain.Orders;
+
+namespace Bookstore.Data.Extensions
+{
+    public static class DateTimeExtensions
+    {
+        public static DateTime OneSecondToMidnight(this DateTime dateTime)
+        {
+            return new DateTime(dateTime.Year, dateTime.Month, dateTime.Day, 23, 59, 59, dateTime.Kind);
+        }
+    }
+}
+
+// These classes are defined in the Bookstore.Domain project
+// and referenced via project reference
+
+namespace Bookstore.Domain.Repositories
+{
+    public interface IOrderRepository
+    {
+        Task AddAsync(Bookstore.Domain.Orders.Order order);
+        Task<Bookstore.Domain.Orders.Order> GetAsync(int id);
+        Task<Bookstore.Domain.Orders.Order> GetAsync(int id, string sub);
+        Task<IEnumerable<Bookstore.Domain.Book>> ListBestSellingBooksAsync(int count);
+        Task<OrderStatistics> GetStatisticsAsync();
+        Task<IEnumerable<Bookstore.Domain.Orders.Order>> ListAsync(OrderFilters filters, int pageIndex, int pageSize);
+        Task<IEnumerable<Bookstore.Domain.Orders.Order>> ListAsync(string sub);
+        Task SaveChangesAsync();
+    }
+}
+
+namespace Bookstore.Domain.Repositories
+{
+    public class OrderStatistics
+    {
+        public int PendingOrders { get; set; }
+        public int PastDueOrders { get; set; }
+        public int OrdersThisMonth { get; set; }
+        public int OrdersTotal { get; set; }
+    }
+
+    public class OrderFilters
+    {
+        public OrderStatus? OrderStatusFilter { get; set; }
+        public DateTime? OrderDateFromFilter { get; set; }
+        public DateTime? OrderDateToFilter { get; set; }
+    }
+}
+
+namespace Bookstore.Data
+{
+    public class ApplicationDbContext : DbContext
+    {
+        public DbSet<Bookstore.Domain.Orders.Order> Orders { get; set; }
+        public DbSet<Bookstore.Domain.Orders.OrderItem> OrderItems { get; set; }
+    }
+}
 
 namespace Bookstore.Data.Repositories
 {
-    public class OrderRepository : IOrderRepository
+public class OrderRepository : IOrderRepository
     {
         private readonly ApplicationDbContext dbContext;
 
@@ -18,14 +78,14 @@ namespace Bookstore.Data.Repositories
             this.dbContext = dbContext;
         }
 
-        async Task IOrderRepository.AddAsync(Order order)
-        {
-            await Task.Run(() => dbContext.Order.Add(order));
-        }
+public async Task AddAsync(Bookstore.Domain.Orders.Order order)
+{
+    await Task.Run(() => dbContext.Orders.Add(order));
+}
 
-        async Task<Order> IOrderRepository.GetAsync(int id)
-        {
-            return await dbContext.Order
+public async Task<Bookstore.Domain.Orders.Order> GetAsync(int id)
+{
+            return await dbContext.Orders
                 .Include(x => x.Customer)
                 .Include(x => x.Address)
                 .Include(x => x.OrderItems)
@@ -37,14 +97,14 @@ namespace Bookstore.Data.Repositories
                 .SingleOrDefaultAsync(x => x.Id == id);
         }
 
-        async Task<Order> IOrderRepository.GetAsync(int id, string sub)
-        {
-            return await dbContext.Order.SingleOrDefaultAsync(x => x.Id == id && x.Customer.Sub == sub);
-        }
+public async Task<Bookstore.Domain.Orders.Order> GetAsync(int id, string sub)
+{
+    return await dbContext.Orders.SingleOrDefaultAsync(x => x.Id == id && x.Customer.Sub == sub);
+}
 
-        async Task<IEnumerable<Book>> IOrderRepository.ListBestSellingBooksAsync(int count)
+public async Task<IEnumerable<Bookstore.Domain.Book>> ListBestSellingBooksAsync(int count)
         {
-            return await dbContext.OrderItem
+            return await dbContext.OrderItems
                 .GroupBy(x => x.BookId)
                 .OrderByDescending(x => x.Count())
                 .Select(x => x.FirstOrDefault().Book)
@@ -52,24 +112,24 @@ namespace Bookstore.Data.Repositories
                 .ToListAsync();
         }
 
-        async Task<OrderStatistics> IOrderRepository.GetStatisticsAsync()
+        public async Task<OrderStatistics> GetStatisticsAsync()
         {
-            var startOfMonth = DateTime.UtcNow.StartOfMonth();
+            var startOfMonth = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1, 0, 0, 0, DateTimeKind.Utc);
 
-            return await dbContext.Order
+            return await dbContext.Orders
                 .GroupBy(x => 1)
                 .Select(x => new OrderStatistics
                 {
-                    PendingOrders = x.Count(y => y.OrderStatus == OrderStatus.Pending),
-                    PastDueOrders = x.Count(y => y.OrderStatus == OrderStatus.Ordered && y.DeliveryDate < DateTime.UtcNow),
+                    PendingOrders = x.Count(y => y.OrderStatus == Bookstore.Domain.Orders.OrderStatus.Pending),
+                    PastDueOrders = x.Count(y => y.OrderStatus == Bookstore.Domain.Orders.OrderStatus.Ordered && y.DeliveryDate < DateTime.UtcNow),
                     OrdersThisMonth = x.Count(y => y.CreatedOn >= startOfMonth),
                     OrdersTotal = x.Count()
                 }).SingleOrDefaultAsync();
         }
 
-        async Task<IPaginatedList<Order>> IOrderRepository.ListAsync(OrderFilters filters, int pageIndex, int pageSize)
+public async Task<IEnumerable<Bookstore.Domain.Orders.Order>> ListAsync(OrderFilters filters, int pageIndex, int pageSize)
         {
-            var query = dbContext.Order.AsQueryable();
+            var query = dbContext.Orders.AsQueryable();
 
             if (filters.OrderStatusFilter.HasValue)
             {
@@ -92,23 +152,22 @@ namespace Bookstore.Data.Repositories
                 .Include(x => x.OrderItems)
                 .Include(x => x.OrderItems.Select(y => y.Book));
 
-            var result = new PaginatedList<Order>(query, pageIndex, pageSize);
+            // Apply paging directly
+            var orders = await query.Skip(pageIndex * pageSize).Take(pageSize).ToListAsync();
 
-            await result.PopulateAsync();
-
-            return result;
+            return orders;
         }
 
-        async Task<IEnumerable<Order>> IOrderRepository.ListAsync(string sub)
+public async Task<IEnumerable<Bookstore.Domain.Orders.Order>> ListAsync(string sub)
         {
-            return await dbContext.Order
+            return await dbContext.Orders
                 .Include(x => x.OrderItems)
                 .Include(x => x.OrderItems.Select(y => y.Book))
                 .Where(x => x.Customer.Sub == sub)
                 .ToListAsync();
         }
 
-        async Task IOrderRepository.SaveChangesAsync()
+        public async Task SaveChangesAsync()
         {
             await dbContext.SaveChangesAsync();
         }

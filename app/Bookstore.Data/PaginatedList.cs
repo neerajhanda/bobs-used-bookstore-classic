@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Data.Entity;
 using System.Linq;
@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Bookstore.Domain
 {
-    public class PaginatedList<T> : List<T>, IPaginatedList<T> where T : Entity
+    public class PaginatedList<T> : List<T>, IPaginatedList<T> where T : class
     {
         private readonly IQueryable<T> source;
         private readonly int pageIndex;
@@ -15,6 +15,12 @@ namespace Bookstore.Domain
         public int PageIndex { get; private set; }
 
         public int TotalPages { get; private set; }
+
+        public int TotalCount { get; private set; }
+
+        public int PageSize => pageSize;
+
+        public List<T> Items => this;
 
         private PaginatedList(){ }
 
@@ -31,7 +37,7 @@ namespace Bookstore.Domain
             var items = await source.OrderBy(x => x.Id).Skip((pageIndex - 1) * pageSize).Take(pageSize).ToListAsync();
 
             PageIndex = pageIndex;
-
+            TotalCount = count;
             TotalPages = (int)Math.Ceiling(count / (double)pageSize);
 
             AddRange(items);

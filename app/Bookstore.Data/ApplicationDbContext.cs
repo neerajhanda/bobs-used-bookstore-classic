@@ -1,13 +1,19 @@
-﻿using System.ComponentModel.DataAnnotations.Schema;
-using Bookstore.Domain.Addresses;
-using Bookstore.Domain.Books;
-using Bookstore.Domain.Carts;
-using Bookstore.Domain.Customers;
-using Bookstore.Domain.Offers;
-using Bookstore.Domain.Orders;
-using Bookstore.Domain.ReferenceData;
+using System.ComponentModel.DataAnnotations.Schema;
+using Bookstore.Domain;
 using System.Data.Entity;
 using System.Data.Entity.ModelConfiguration.Conventions;
+using Bookstore.Domain.Books;
+using Bookstore.Domain.Orders;
+using Bookstore.Domain.Customers;
+// Ensure Customer is properly imported
+using Customer = Bookstore.Domain.Customers.Customer;
+// Ensure OrderItem is properly imported
+using OrderItem = Bookstore.Domain.Orders.OrderItem;
+// Ensure Order is properly imported
+using Order = Bookstore.Domain.Orders.Order;
+// Ensure ShoppingCart is properly imported
+using ShoppingCart = Bookstore.Domain.ShoppingCart;
+using ReferenceDataItem = Bookstore.Domain.ReferenceDataItem;
 
 namespace Bookstore.Data
 {
@@ -27,8 +33,6 @@ namespace Bookstore.Data
 
         public DbSet<OrderItem> OrderItem { get; set; }
 
-        public DbSet<Offer> Offer { get; set; }
-
         public DbSet<ReferenceDataItem> ReferenceData { get; set; }
 
         protected override void OnModelCreating(DbModelBuilder modelBuilder)
@@ -45,18 +49,14 @@ namespace Bookstore.Data
             modelBuilder.Entity<Book>().HasRequired(x => x.Genre).WithMany().HasForeignKey(x => x.GenreId).WillCascadeOnDelete(false);
             modelBuilder.Entity<Book>().HasRequired(x => x.Condition).WithMany().HasForeignKey(x => x.ConditionId).WillCascadeOnDelete(false);
 
-            modelBuilder.Entity<Offer>().HasRequired(x => x.Publisher).WithMany().HasForeignKey(x => x.PublisherId).WillCascadeOnDelete(false);
-            modelBuilder.Entity<Offer>().HasRequired(x => x.BookType).WithMany().HasForeignKey(x => x.BookTypeId).WillCascadeOnDelete(false);
-            modelBuilder.Entity<Offer>().HasRequired(x => x.Genre).WithMany().HasForeignKey(x => x.GenreId).WillCascadeOnDelete(false);
-            modelBuilder.Entity<Offer>().HasRequired(x => x.Condition).WithMany().HasForeignKey(x => x.ConditionId).WillCascadeOnDelete(false);
+
 
             modelBuilder.Entity<Order>().HasRequired(x => x.Customer).WithMany().WillCascadeOnDelete(false);
 
             // Update the Refernce Data Table to Match the modern version
             modelBuilder.Entity<ReferenceDataItem>().ToTable("ReferenceData");
 
-            modelBuilder.Entity<ShoppingCartItem>().HasKey(x => new { x.Id, x.ShoppingCartId });
-            modelBuilder.Entity<ShoppingCartItem>().Property(x => x.Id).HasDatabaseGeneratedOption(DatabaseGeneratedOption.Identity);
+            modelBuilder.Entity<ShoppingCart>().HasMany(x => x.Items);
 
             Database.SetInitializer(new BookstoreDbInitializer());
         }

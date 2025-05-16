@@ -1,10 +1,16 @@
-﻿using Bookstore.Domain;
+using Bookstore.Domain;
 using System.IO;
 using System.Threading.Tasks;
 
 namespace Bookstore.Data.FileServices
 {
-    public class LocalFileService : IFileService
+public interface IFileService
+{
+    Task DeleteAsync(string filePath);
+    Task<string> SaveAsync(Stream file, string filename);
+}
+
+public class LocalFileService : IFileService
     {
         private readonly string webRootPath;
 

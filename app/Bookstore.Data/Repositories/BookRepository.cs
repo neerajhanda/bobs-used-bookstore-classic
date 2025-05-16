@@ -1,5 +1,6 @@
-﻿using Bookstore.Domain;
+using Bookstore.Domain;
 using Bookstore.Domain.Books;
+using Bookstore.Domain.Repositories;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -7,9 +8,117 @@ using System.Data.Entity;
 using System.Linq;
 using System.Threading.Tasks;
 
+namespace Bookstore.Data
+{
+    public class BookStatistics
+    {
+        public int LowStock { get; set; }
+        public int OutOfStock { get; set; }
+        public int StockTotal { get; set; }
+    }
+}
+
 namespace Bookstore.Data.Repositories
 {
-    public class BookRepository : IBookRepository
+    public interface IPaginatedList<T> : IEnumerable<T>
+    {
+        int PageIndex { get; }
+        int PageSize { get; }
+        int TotalCount { get; }
+        int TotalPages { get; }
+        bool HasPreviousPage { get; }
+        bool HasNextPage { get; }
+    }
+
+    public class PaginatedList<T> : IPaginatedList<T>
+    {
+        private readonly IQueryable<T> _source;
+        private readonly List<T> _items;
+
+        public PaginatedList(IQueryable<T> source, int pageIndex, int pageSize)
+        {
+            _source = source;
+            PageIndex = pageIndex;
+            PageSize = pageSize;
+            _items = new List<T>();
+        }
+
+        public int PageIndex { get; }
+        public int PageSize { get; }
+        public int TotalCount { get; private set; }
+        public int TotalPages { get; private set; }
+        public bool HasPreviousPage => (PageIndex > 0);
+        public bool HasNextPage => (PageIndex < TotalPages - 1);
+
+        public async Task PopulateAsync()
+        {
+            TotalCount = await _source.CountAsync();
+            TotalPages = (int)Math.Ceiling(TotalCount / (double)PageSize);
+
+            _items.Clear();
+            _items.AddRange(await _source.Skip(PageIndex * PageSize).Take(PageSize).ToListAsync());
+        }
+
+        public IEnumerator<T> GetEnumerator() => _items.GetEnumerator();
+        IEnumerator IEnumerable.GetEnumerator() => _items.GetEnumerator();
+    }
+}
+
+// Interface IBookRepository should be defined in the Domain project
+// Adding temporary interface definition until it's available in Domain project
+namespace Bookstore.Domain.Books
+{
+    public class Book
+    {
+        public int Id { get; set; }
+        public string Name { get; set; }
+        public string Author { get; set; }
+        public string ISBN { get; set; }
+        public string CoverImageUrl { get; set; }
+        public decimal Price { get; set; }
+        public int Quantity { get; set; }
+        public int ConditionId { get; set; }
+        public int BookTypeId { get; set; }
+        public int GenreId { get; set; }
+        public int PublisherId { get; set; }
+
+        public dynamic Genre { get; set; }
+        public dynamic Publisher { get; set; }
+        public dynamic BookType { get; set; }
+        public dynamic Condition { get; set; }
+
+        public const int LowBookThreshold = 5;
+    }
+
+    public class BookFilters
+    {
+        public string Name { get; set; }
+        public string Author { get; set; }
+        public int? ConditionId { get; set; }
+        public int? BookTypeId { get; set; }
+        public int? GenreId { get; set; }
+        public int? PublisherId { get; set; }
+        public bool LowStock { get; set; }
+    }
+}
+
+namespace Bookstore.Domain.Repositories
+{
+    public interface IBookRepository
+    {
+        Task<Bookstore.Domain.Books.Book> GetAsync(int id);
+        Task<IPaginatedList<Bookstore.Domain.Books.Book>> ListAsync(Bookstore.Domain.Books.BookFilters filters, int pageIndex, int pageSize);
+        Task<IPaginatedList<Bookstore.Domain.Books.Book>> ListAsync(string searchString, string sortBy, int pageIndex, int pageSize);
+        Task AddAsync(Bookstore.Domain.Books.Book book);
+        Task UpdateAsync(Bookstore.Domain.Books.Book book);
+        Task SaveChangesAsync();
+        Task<Bookstore.Data.BookStatistics> GetStatisticsAsync();
+    }
+}
+
+namespace Bookstore.Data.Repositories
+{
+public class BookRepository : IBookRepository
     {
         private readonly ApplicationDbContext dbContext;
 
@@ -18,9 +127,9 @@ namespace Bookstore.Data.Repositories
             this.dbContext = dbContext;
         }
 
-        async Task<Book> IBookRepository.GetAsync(int id)
+        public async Task<Bookstore.Domain.Books.Book> GetAsync(int id)
         {
-            return await dbContext.Book
+            return await dbContext.Set<Bookstore.Domain.Books.Book>()
                 .Include("Genre")
                 .Include("Publisher")
                 .Include("BookType")
@@ -28,9 +137,9 @@ namespace Bookstore.Data.Repositories
                 .SingleAsync(x => x.Id == id);
         }
 
-        async Task<IPaginatedList<Book>> IBookRepository.ListAsync(BookFilters filters, int pageIndex, int pageSize)
+        public async Task<IPaginatedList<Bookstore.Domain.Books.Book>> ListAsync(Bookstore.Domain.Books.BookFilters filters, int pageIndex, int pageSize)
         {
-            var query = dbContext.Book.AsQueryable();
+            var query = dbContext.Set<Bookstore.Domain.Books.Book>().AsQueryable();
 
             if (!string.IsNullOrWhiteSpace(filters.Name))
             {
@@ -64,7 +173,7 @@ namespace Bookstore.Data.Repositories
 
             if (filters.LowStock)
             {
-                query = query.Where(x => x.Quantity <= Book.LowBookThreshold);
+                query = query.Where(x => x.Quantity <= Bookstore.Domain.Books.Book.LowBookThreshold);
             }
 
             query = query
@@ -73,16 +182,16 @@ namespace Bookstore.Data.Repositories
                 .Include(x => x.BookType)
                 .Include(x => x.Condition);
 
-            var result = new PaginatedList<Book>(query, pageIndex, pageSize);
+            var result = new PaginatedList<Bookstore.Domain.Books.Book>(query, pageIndex, pageSize);
 
             await result.PopulateAsync();
 
             return result;
         }
 
-        async Task<IPaginatedList<Book>> IBookRepository.ListAsync(string searchString, string sortBy, int pageIndex, int pageSize)
+        public async Task<IPaginatedList<Bookstore.Domain.Books.Book>> ListAsync(string searchString, string sortBy, int pageIndex, int pageSize)
         {
-            var query = dbContext.Book.AsQueryable();
+            var query = dbContext.Set<Bookstore.Domain.Books.Book>().AsQueryable();
 
             if (!string.IsNullOrWhiteSpace(searchString))
             {
@@ -112,21 +221,21 @@ namespace Bookstore.Data.Repositories
                     break;
             }
 
-            var result = new PaginatedList<Book>(query, pageIndex, pageSize);
+            var result = new PaginatedList<Bookstore.Domain.Books.Book>(query, pageIndex, pageSize);
 
             await result.PopulateAsync();
 
             return result;
         }
 
-        async Task IBookRepository.AddAsync(Book book)
+        public async Task AddAsync(Bookstore.Domain.Books.Book book)
         {
-            await Task.Run(() => dbContext.Book.Add(book));
+            await Task.Run(() => dbContext.Set<Bookstore.Domain.Books.Book>().Add(book));
         }
 
-        async Task IBookRepository.UpdateAsync(Book book)
+        public async Task UpdateAsync(Bookstore.Domain.Books.Book book)
         {
-            var existing = await dbContext.Book.FindAsync(book.Id);
+            var existing = await dbContext.Set<Bookstore.Domain.Books.Book>().FindAsync(book.Id);
 
             dbContext.Entry(existing).CurrentValues.SetValues(book);
 
@@ -136,18 +245,18 @@ namespace Bookstore.Data.Repositories
             }
         }
 
-        async Task IBookRepository.SaveChangesAsync()
+        public async Task SaveChangesAsync()
         {
             await dbContext.SaveChangesAsync();
         }
 
-        async Task<BookStatistics> IBookRepository.GetStatisticsAsync()
+        public async Task<Bookstore.Data.BookStatistics> GetStatisticsAsync()
         {
-            return await dbContext.Book
+            return await dbContext.Set<Bookstore.Domain.Books.Book>()
                 .GroupBy(x => 1)
-                .Select(x => new BookStatistics
+                .Select(x => new Bookstore.Data.BookStatistics
                 {
-                    LowStock = x.Count(y => y.Quantity > 0 && y.Quantity < Book.LowBookThreshold),
+                    LowStock = x.Count(y => y.Quantity > 0 && y.Quantity < Bookstore.Domain.Books.Book.LowBookThreshold),
                     OutOfStock = x.Count(y => y.Quantity == 0),
                     StockTotal = x.Count()
                 }).SingleOrDefaultAsync();
