@@ -1,10 +1,15 @@
-﻿using Bookstore.Domain;
+using Bookstore.Domain;
 using ImageMagick;
 using System.IO;
 using System.Threading.Tasks;
 
 namespace Bookstore.Data.ImageResizeService
 {
+    public interface IImageResizeService
+    {
+        Task<Stream> ResizeImageAsync(Stream image);
+    }
+
     public class ImageResizeService : IImageResizeService
     {
         private const int BookCoverImageWidth = 400;

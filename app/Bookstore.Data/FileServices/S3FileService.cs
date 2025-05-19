@@ -1,14 +1,19 @@
-﻿using Amazon.S3;
+using Amazon.S3;
 using Amazon.S3.Model;
 using Amazon.S3.Transfer;
 using Bookstore.Domain;
 using System.IO;
 using System.Threading.Tasks;
-using BobsBookstoreClassic.Data;
 
 namespace Bookstore.Data.FileServices
 {
-    public class S3FileService : IFileService
+    public interface IS3FileService
+    {
+        Task<string> SaveS3FileAsync(Stream contents, string filename);
+        Task DeleteS3FileAsync(string filePath);
+    }
+
+    public class S3FileService : IS3FileService
     {
         private readonly TransferUtility transferUtility;
 
@@ -17,21 +22,21 @@ namespace Bookstore.Data.FileServices
             transferUtility = new TransferUtility(s3Client);
         }
 
-        public async Task DeleteAsync(string filePath)
+    public async Task DeleteS3FileAsync(string filePath)
+    {
+        if (string.IsNullOrWhiteSpace(filePath)) return;
+
+        var bucketName = BookstoreConfiguration.GetSetting("Files/BucketName");
+        var request = new DeleteObjectRequest
         {
-            if (string.IsNullOrWhiteSpace(filePath)) return;
+            BucketName = bucketName,
+            Key = Path.GetFileName(filePath)
+        };
 
-            var bucketName = BookstoreConfiguration.GetSetting("Files/BucketName");
-            var request = new DeleteObjectRequest
-            {
-                BucketName = bucketName,
-                Key = Path.GetFileName(filePath)
-            };
+        await transferUtility.S3Client.DeleteObjectAsync(request);
+    }
 
-            await transferUtility.S3Client.DeleteObjectAsync(request);
-        }
-
-        public async Task<string> SaveAsync(Stream contents, string filename)
+        public async Task<string> SaveS3FileAsync(Stream contents, string filename)
         {
             if (contents == null) return null;
 

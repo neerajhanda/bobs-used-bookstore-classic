@@ -1,4 +1,4 @@
-﻿using Amazon.Rekognition;
+using Amazon.Rekognition;
 using Amazon.Rekognition.Model;
 using Bookstore.Domain;
 using System;
@@ -8,7 +8,12 @@ using System.Threading.Tasks;
 
 namespace Bookstore.Data.ImageValidationServices
 {
-    public class RekognitionImageValidationService : IImageValidationService
+    public interface IRekognitionImageValidationService
+    {
+        Task<bool> IsSafeAsync(Stream image);
+    }
+
+    public class RekognitionImageValidationService : IRekognitionImageValidationService
     {
         private readonly IAmazonRekognition rekognitionClient;
 
