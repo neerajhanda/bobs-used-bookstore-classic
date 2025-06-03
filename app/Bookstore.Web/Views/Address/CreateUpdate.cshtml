@@ -1,4 +1,4 @@
-﻿@model Bookstore.Web.ViewModel.Address.AddressCreateUpdateViewModel
+@model Bookstore.Web.ViewModel.Address.AddressCreateUpdateViewModel
 
 @{
     ViewData["Title"] = "Edit";
@@ -44,17 +44,17 @@
             @Html.ValidationMessageFor(model => model.ZipCode, "", new { @class = "text-danger" })
         </div>
 
-        <center>
+        <div class="text-center">
             <div class="form-group">
                 <input type="submit" value="Save" class="btn" />
                 <a class="btn" href="@Model.ReturnUrl">Cancel</a>
             </div>
-        </center>
+        </div>
     }
 </div>
 
 @section Scripts {
     @{
-        Html.RenderPartial("_ValidationScriptsPartial");
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
     }
 }
